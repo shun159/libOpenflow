@@ -148,7 +148,9 @@ func DecodeNxAction(data []byte) Action {
 	case NXAST_SET_MPLS_TTL:
 	case NXAST_DEC_MPLS_TTL:
 	case NXAST_STACK_PUSH:
+		a = new(NXActionStackPush)
 	case NXAST_STACK_POP:
+		a = new(NXActionStackPop)
 	case NXAST_SAMPLE:
 	case NXAST_SET_MPLS_LABEL:
 	case NXAST_SET_MPLS_TC:
@@ -1002,4 +1004,158 @@ func NewNXActionDecTTLCntIDs(controllers uint16, ids ...uint16) *NXActionDecTTLC
 	}
 	a.Length = 16 + uint16(2*len(ids))
 	return a
+}
+
+type NXActionStackPush struct {
+	*NXActionHeader
+	SrcOfs      uint16      // Bit offset into the field.
+	SrcField    *MatchField // The field used for push
+	Nbits       uint16      // (n_bits + 1) bits of the field.
+	zero        [6]uint8    // 6 byte with zeros
+}
+
+func NewNxActionStackPush(srcOfs uint16, srcField *MatchField, nBits uint16) *NXActionStackPush {
+	a := &NXActionStackPush{
+		NXActionHeader: NewNxActionHeader(NXAST_STACK_PUSH),
+		SrcOfs:         srcOfs,
+		SrcField:       srcField,
+		Nbits:          nBits,
+		zero:           [6]uint8{},
+	}
+
+	a.Length = a.NXActionHeader.Len() + 6
+	return a
+}
+
+func (a *NXActionStackPush) Len() (n uint16) {
+	return a.Length
+}
+
+func (a *NXActionStackPush) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(a.Len()))
+	var b []byte
+	n := 0
+
+	b, err = a.NXActionHeader.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+
+	binary.BigEndian.PutUint16(data[n:], a.SrcOfs)
+	n += 2
+
+	fieldHeaderData := a.SrcField.MarshalHeader()
+	binary.BigEndian.PutUint32(data[n:], fieldHeaderData)
+	n += 4
+
+	binary.BigEndian.PutUint16(data[n:], a.Nbits)
+	n += 2
+
+	copy(data[n:], a.zero[0:])
+	n += 6
+
+	return
+}
+
+func (a *NXActionStackPush) UnmarshalBinary(data []byte) error {
+	n := 0
+
+	a.NXActionHeader = new(NXActionHeader)
+	err := a.NXActionHeader.UnmarshalBinary(data[n:])
+	n += int(a.NXActionHeader.Len())
+
+	if len(data) < int(a.Len()) {
+		return errors.New("the []byte is too short to unmarshal a full NXActionStackPush message")
+	}
+
+	a.SrcOfs = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	srcFieldHeaderData := a.SrcField.MarshalHeader()
+	binary.BigEndian.PutUint32(data[n:], srcFieldHeaderData)
+	n += 4
+
+	a.Nbits = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	// Skip padding copy, move the index.
+	n += 6
+
+	return err
+}
+
+type NXActionStackPop struct {
+	*NXActionHeader
+	DstOfs      uint16      // Bit offset into the field.
+	DstField    *MatchField // The field used for pop
+	Nbits       uint16      // (n_bits + 1) bits of the field.
+	zero        [6]uint8    // 6 byte with zeros
+}
+
+func NewNxActionStackPop(dstofs uint16, dstfield *MatchField, nBits uint16) *NXActionStackPop {
+	a := &NXActionStackPop{
+		NXActionHeader: NewNxActionHeader(NXAST_STACK_POP),
+		DstOfs:         dstofs,
+		DstField:       dstfield,
+		Nbits:          nBits,
+		zero:          [6]uint8{},
+	}
+
+	a.Length = a.NXActionHeader.Len() + 6
+	return a
+}
+
+func (a *NXActionStackPop) Len() (n uint16) {
+	return a.Length
+}
+
+func (a *NXActionStackPop) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(a.Len()))
+	var b []byte
+	n := 0
+
+	b, err = a.NXActionHeader.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+
+	binary.BigEndian.PutUint16(data[n:], a.DstOfs)
+	n += 2
+
+	fieldHeaderData := a.DstField.MarshalHeader()
+	binary.BigEndian.PutUint32(data[n:], fieldHeaderData)
+	n += 4
+
+	binary.BigEndian.PutUint16(data[n:], a.Nbits)
+	n += 2
+
+	copy(data[n:], a.zero[0:])
+	n += 6
+
+	return
+}
+
+func (a *NXActionStackPop) UnmarshalBinary(data []byte) error {
+	n := 0
+
+	a.NXActionHeader = new(NXActionHeader)
+	err := a.NXActionHeader.UnmarshalBinary(data[n:])
+	n += int(a.NXActionHeader.Len())
+
+	if len(data) < int(a.Len()) {
+		return errors.New("the []byte is too short to unmarshal a full NXActionStackPop message")
+	}
+
+	a.DstOfs = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	dstfieldHeaderData := a.DstField.MarshalHeader()
+	binary.BigEndian.PutUint32(data[n:], dstfieldHeaderData)
+	n += 4
+
+	a.Nbits = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	// Skip padding copy, move the index.
+	n += 6
+
+	return err
 }
