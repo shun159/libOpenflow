@@ -148,7 +148,9 @@ func DecodeNxAction(data []byte) Action {
 	case NXAST_SET_MPLS_TTL:
 	case NXAST_DEC_MPLS_TTL:
 	case NXAST_STACK_PUSH:
+		a = new(NXActionStackPush)
 	case NXAST_STACK_POP:
+		a = new(NXActionStackPop)
 	case NXAST_SAMPLE:
 	case NXAST_SET_MPLS_LABEL:
 	case NXAST_SET_MPLS_TC:
@@ -1002,4 +1004,153 @@ func NewNXActionDecTTLCntIDs(controllers uint16, ids ...uint16) *NXActionDecTTLC
 	}
 	a.Length = 16 + uint16(2*len(ids))
 	return a
+}
+
+
+type NXActionStackPush struct {
+	*NXActionHeader
+	Offset   uint16
+	SrcField *MatchField
+	Nbits    uint16
+	zeros    [6]uint8
+}
+
+func NewNXActionStackPush(offset uint16, srcField *MatchField, nBits uint16) *NXActionStackPush {
+	a := &NXActionStackPush{
+		NXActionHeader: NewNxActionHeader(NXAST_STACK_PUSH),
+		Offset:   offset,
+		SrcField: srcField,
+		Nbits:    nBits,
+		zeros:    [6]uint8{},
+	}
+
+	a.Length = a.NXActionHeader.Len() + 14
+
+	return a
+}
+
+func (a *NXActionStackPush) Len() (n uint16) {
+	return a.Length
+}
+
+func (a *NXActionStackPush) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(a.Len()))
+	var b []byte
+	n := 0
+
+	b, err = a.NXActionHeader.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+
+	binary.BigEndian.PutUint16(data[n:], a.Offset)
+	n += 2
+
+	srcFieldHeaderData := a.SrcField.MarshalHeader()
+	binary.BigEndian.PutUint32(data[n:], srcFieldHeaderData)
+	n += 4
+
+	binary.BigEndian.PutUint16(data[n:], a.Nbits)
+	n += 2
+
+	copy(data[n:], a.zeros[0:])
+	n += 6
+
+	return
+}
+
+func (a *NXActionStackPush) UnmarshalBinary(data []byte) error {
+	n := 0
+	a.NXActionHeader = new(NXActionHeader)
+	err := a.NXActionHeader.UnmarshalBinary(data[n:])
+	n += int(a.NXActionHeader.Len())
+
+	if len(data) < int(a.Len()) {
+		return errors.New("the []byte is too short to unmarshal a full NXActionStackPush message")
+	}
+
+	a.Offset = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	a.SrcField = new(MatchField)
+	err = a.SrcField.UnmarshalHeader(data[n:])
+	n += 4
+
+	a.Nbits = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	return err
+}
+
+type NXActionStackPop struct {
+	*NXActionHeader
+	Offset   uint16
+	DstField *MatchField
+	Nbits    uint16
+	zeros    [6]uint8
+}
+
+func NewNXActionStackPop(offset uint16, dstField *MatchField, nBits uint16) *NXActionStackPop {
+	a := &NXActionStackPop{
+		NXActionHeader: NewNxActionHeader(NXAST_STACK_POP),
+		Offset:   offset,
+		DstField: dstField,
+		Nbits:    nBits,
+		zeros:    [6]uint8{},
+	}
+
+	a.Length = a.NXActionHeader.Len() + 14
+
+	return a
+}
+
+func (a *NXActionStackPop) Len() (n uint16) {
+	return a.Length
+}
+
+func (a *NXActionStackPop) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, int(a.Len()))
+	var b []byte
+	n := 0
+
+	b, err = a.NXActionHeader.MarshalBinary()
+	copy(data[n:], b)
+	n += len(b)
+
+	binary.BigEndian.PutUint16(data[n:], a.Offset)
+	n += 2
+
+	dstFieldHeaderData := a.DstField.MarshalHeader()
+	binary.BigEndian.PutUint32(data[n:], dstFieldHeaderData)
+	n += 4
+
+	binary.BigEndian.PutUint16(data[n:], a.Nbits)
+	n += 2
+
+	copy(data[n:], a.zeros[0:])
+	n += 6
+
+	return
+}
+
+func (a *NXActionStackPop) UnmarshalBinary(data []byte) error {
+	n := 0
+	a.NXActionHeader = new(NXActionHeader)
+	err := a.NXActionHeader.UnmarshalBinary(data[n:])
+	n += int(a.NXActionHeader.Len())
+
+	if len(data) < int(a.Len()) {
+		return errors.New("the []byte is too short to unmarshal a full NXActionStackPop message")
+	}
+
+	a.Offset = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	a.DstField = new(MatchField)
+	err = a.DstField.UnmarshalHeader(data[n:])
+	n += 4
+
+	a.Nbits = binary.BigEndian.Uint16(data[n:])
+	n += 2
+
+	return err
 }

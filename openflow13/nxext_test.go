@@ -255,6 +255,11 @@ func TestNXActions(t *testing.T) {
 	translateMessages(t, NewNXActionDecTTL(), new(NXActionDecTTL), nxDecTTLEquals)
 	translateMessages(t, NewNXActionDecTTLCntIDs(2, uint16(1), uint16(2)), new(NXActionDecTTLCntIDs), nxDecTTLCntIDsEquals)
 
+	SrcField, _ := FindFieldHeaderByName("NXM_OF_ETH_SRC", false)
+	translateMessages(t, NewNXActionStackPush(0, SrcField, 48), new(NXActionStackPush), nxStackPushEquals)
+
+	DstField, _ := FindFieldHeaderByName("NXM_OF_ETH_DST", false)
+	translateMessages(t, NewNXActionStackPop(0, DstField, 48), new(NXActionStackPop), nxStackPopEquals)
 }
 
 func translateMessages(t *testing.T, act1, act2 Action, compare func(act1, act2 Action, stype uint16) bool) {
@@ -395,6 +400,52 @@ func nxDecTTLCntIDsEquals(o1 Action, o2 Action, subtype uint16) bool {
 			return false
 		}
 	}
+	return true
+}
+
+func nxStackPushEquals(o1 Action, o2 Action, subtype uint16) bool {
+	if subtype != NXAST_STACK_PUSH {
+		return false
+	}
+
+	obj1 := o1.(*NXActionStackPush)
+	obj2 := o2.(*NXActionStackPush)
+
+	if obj1.Offset != obj2.Offset {
+		return false
+	}
+
+	if obj1.SrcField.Field != obj2.SrcField.Field {
+		return false
+	}
+
+	if obj1.Nbits != obj2.Nbits {
+		return false
+	}
+
+	return true
+}
+
+func nxStackPopEquals(o1 Action, o2 Action, subtype uint16) bool {
+	if subtype != NXAST_STACK_POP {
+		return false
+	}
+
+	obj1 := o1.(*NXActionStackPop)
+	obj2 := o2.(*NXActionStackPop)
+
+	if obj1.Offset != obj2.Offset {
+		return false
+	}
+
+	if obj1.DstField.Field != obj2.DstField.Field {
+		return false
+	}
+
+	if obj1.Nbits != obj2.Nbits {
+		return false
+	}
+
 	return true
 }
 
